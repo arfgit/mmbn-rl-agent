@@ -83,6 +83,12 @@ cp path/to/save.sav "roms/Mega Man Battle Network 6 - Cybeast Gregar (USA).sav"
 
 ## Usage
 
+### Quick Start (Full Experience)
+
+```bash
+cd ~/Projects/mmbn-rl-agent && conda activate .venv/ && PYTHONPATH=. python scripts/watch_agent.py --state 1 --fps 15
+```
+
 ### Watch Agent Dashboard (Random Actions)
 
 Launches the dashboard with random button presses. Useful for testing the environment, verifying HP tracking, and observing the reward system before training a model.
