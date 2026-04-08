@@ -59,12 +59,12 @@ conda activate .venv/
 # Install mGBA
 brew install mgba
 
-# Build mGBA Python bindings from source
+# Build libmgba from source (needed for Python ctypes bindings)
 git clone --depth 1 https://github.com/mgba-emu/mgba.git /tmp/mgba-build
-cd /tmp/mgba-build && mkdir build && cd build
+mkdir /tmp/mgba-build/build && cd /tmp/mgba-build/build
 cmake .. -DBUILD_PYTHON=ON -DBUILD_QT=OFF -DBUILD_SDL=OFF
 make -j8
-cp build/libmgba.0.11.dylib /path/to/project/.venv/lib/
+cp libmgba.0.11.dylib /path/to/project/.venv/lib/
 
 # Install Python dependencies
 pip install -r requirements.txt
@@ -83,7 +83,9 @@ cp path/to/save.sav "roms/Mega Man Battle Network 6 - Cybeast Gregar (USA).sav"
 
 ## Usage
 
-### Watch the Agent
+### Watch Agent Dashboard (Random Actions)
+
+Launches the dashboard with random button presses. Useful for testing the environment, verifying HP tracking, and observing the reward system before training a model.
 
 ```bash
 PYTHONPATH=. python scripts/watch_agent.py --state 1 --fps 15
@@ -101,7 +103,7 @@ Controls: `P` pause, `R` reset, `Esc` save & quit
 ### Train the Agent
 
 ```bash
-PYTHONPATH=. python scripts/train.py --timesteps 500000
+PYTHONPATH=. python scripts/train.py --state 1 --timesteps 500000
 ```
 
 ### View Progress
