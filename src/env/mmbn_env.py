@@ -1,4 +1,4 @@
-import retro
+import stable_retro as retro
 import gymnasium as gym
 import numpy as np
 import cv2
@@ -40,11 +40,14 @@ class MmbnWrapper(gym.Wrapper):
         if episode_stats.steps > 0:
             self.progress.record(episode_stats)
         self.progress.save()
-        super().close()
+        try:
+            super().close()
+        except AttributeError:
+            pass
 
 
 def make_mmbn_env(
-    game: str = "MegaManBattleNetwork-GBA",
+    game: str = "MegaManBattleNetwork6CybeastGregar-GBA",
     state: str | None = None,
     render_mode: str | None = None,
 ) -> gym.Env:
