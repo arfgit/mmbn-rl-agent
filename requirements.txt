@@ -1,6 +1,9 @@
-stable-retro>=1.0.0
 stable-baselines3>=2.0.0
 torch>=2.0.0
 tensorboard>=2.14.0
 opencv-python>=4.8.0
 numpy>=1.24.0
+pyglet>=1.5.0
+Pillow>=10.0.0
+pyGBA>=0.2.0
+pygame>=2.6.0

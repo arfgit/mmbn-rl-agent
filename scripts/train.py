@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 import argparse
-from src.env import make_mmbn_env
-from src.agent.trainer import train
+import sys
 
 
 def main():
@@ -12,15 +11,9 @@ def main():
     parser.add_argument("--state", type=str, default=None)
     args = parser.parse_args()
 
-    env = make_mmbn_env(state=args.state)
-    model = train(
-        env,
-        total_timesteps=args.timesteps,
-        checkpoint_freq=args.checkpoint_freq,
-        model_path=args.model_path,
-    )
-    print(f"Training complete. Model saved to {args.model_path}")
-    env.close()
+    print("Training requires the mGBA gym environment (coming soon)")
+    print(f"Would train for {args.timesteps} timesteps")
+    sys.exit(1)
 
 
 if __name__ == "__main__":
