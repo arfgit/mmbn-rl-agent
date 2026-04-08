@@ -25,10 +25,18 @@ _lib.mCoreLoadFile.restype = ctypes.c_bool
 _lib.mCoreLoadFile.argtypes = [ctypes.c_void_p, ctypes.c_char_p]
 _lib.mCoreInitConfig.restype = None
 _lib.mCoreInitConfig.argtypes = [ctypes.c_void_p, ctypes.c_char_p]
+_lib.mCoreLoadSaveFile.restype = ctypes.c_bool
+_lib.mCoreLoadSaveFile.argtypes = [ctypes.c_void_p, ctypes.c_char_p, ctypes.c_int]
+_lib.mCoreLoadState.restype = ctypes.c_bool
+_lib.mCoreLoadState.argtypes = [ctypes.c_void_p, ctypes.c_int, ctypes.c_int]
+_lib.mCoreSaveState.restype = ctypes.c_bool
+_lib.mCoreSaveState.argtypes = [ctypes.c_void_p, ctypes.c_int, ctypes.c_int]
 _lib.mCoreLoadStateNamed.restype = ctypes.c_bool
 _lib.mCoreLoadStateNamed.argtypes = [ctypes.c_void_p, ctypes.c_char_p, ctypes.c_int]
 _lib.mCoreSaveStateNamed.restype = ctypes.c_bool
 _lib.mCoreSaveStateNamed.argtypes = [ctypes.c_void_p, ctypes.c_char_p, ctypes.c_int]
+
+SAVESTATE_ALL = 31
 
 GBA_W, GBA_H = 240, 160
 
@@ -61,6 +69,8 @@ _VT = {
     'loadExtraState': 40, 'saveExtraState': 41,
     'setKeys': 42, 'addKeys': 43, 'clearKeys': 44, 'getKeys': 45,
     'frameCounter': 46, 'frameCycles': 47, 'frequency': 48,
+    'getGameInfo': 49, 'setPeripheral': 50, 'getPeripheral': 51,
+    'busRead8': 52, 'busRead16': 53, 'busRead32': 54,
 }
 
 
@@ -92,7 +102,7 @@ def _read_ptr(base: int, byte_offset: int) -> int:
 
 
 class MgbaCore:
-    def __init__(self, rom_path: str):
+    def __init__(self, rom_path: str, save_path: str | None = None):
         self._ptr = _lib.GBACoreCreate()
         if not self._ptr:
             raise RuntimeError("GBACoreCreate failed")
@@ -120,6 +130,9 @@ class MgbaCore:
 
             if not _lib.mCoreLoadFile(self._ptr, rom_path.encode()):
                 raise RuntimeError(f"Failed to load ROM: {rom_path}")
+
+            if save_path and Path(save_path).exists():
+                _lib.mCoreLoadSaveFile(self._ptr, save_path.encode(), 0)
 
             self._fn_reset = self._make_fn('reset', ctypes.CFUNCTYPE(None, ctypes.c_void_p))
             self._fn_run_frame = self._make_fn('runFrame', ctypes.CFUNCTYPE(None, ctypes.c_void_p))
@@ -159,24 +172,54 @@ class MgbaCore:
 
     def get_screen(self) -> np.ndarray:
         self._check_open()
-        frame = np.frombuffer(self._video_buffer, dtype=np.uint32).reshape(GBA_H, GBA_W).copy()
-        r = ((frame >> 16) & 0xFF).astype(np.uint8)
-        g = ((frame >> 8) & 0xFF).astype(np.uint8)
-        b = (frame & 0xFF).astype(np.uint8)
-        return np.stack([r, g, b], axis=-1)
+        raw = np.frombuffer(self._video_buffer, dtype=np.uint8).reshape(GBA_H, GBA_W, 4).copy()
+        return raw[:, :, [2, 1, 0]]
+
+    def get_screen_bgra(self) -> np.ndarray:
+        self._check_open()
+        return np.frombuffer(self._video_buffer, dtype=np.uint8).reshape(GBA_H, GBA_W, 4).copy()
+
+    def load_state_slot(self, slot: int) -> bool:
+        self._check_open()
+        return _lib.mCoreLoadState(self._ptr, slot, SAVESTATE_ALL)
+
+    def save_state_slot(self, slot: int) -> bool:
+        self._check_open()
+        return _lib.mCoreSaveState(self._ptr, slot, SAVESTATE_ALL)
 
     def load_state(self, path: str) -> bool:
         self._check_open()
-        return _lib.mCoreLoadStateNamed(self._ptr, path.encode(), 1)
+        return _lib.mCoreLoadStateNamed(self._ptr, path.encode(), SAVESTATE_ALL)
 
     def save_state(self, path: str) -> bool:
         self._check_open()
-        return _lib.mCoreSaveStateNamed(self._ptr, path.encode(), 1)
+        return _lib.mCoreSaveStateNamed(self._ptr, path.encode(), SAVESTATE_ALL)
 
     @property
     def frame_counter(self) -> int:
         self._check_open()
         return self._fn_frame_counter(self._ptr)
+
+    def read8(self, address: int) -> int:
+        self._check_open()
+        if not hasattr(self, '_fn_bus_read8'):
+            self._fn_bus_read8 = self._make_fn(
+                'busRead8', ctypes.CFUNCTYPE(ctypes.c_uint32, ctypes.c_void_p, ctypes.c_uint32))
+        return self._fn_bus_read8(self._ptr, address) & 0xFF
+
+    def read16(self, address: int) -> int:
+        self._check_open()
+        if not hasattr(self, '_fn_bus_read16'):
+            self._fn_bus_read16 = self._make_fn(
+                'busRead16', ctypes.CFUNCTYPE(ctypes.c_uint32, ctypes.c_void_p, ctypes.c_uint32))
+        return self._fn_bus_read16(self._ptr, address) & 0xFFFF
+
+    def read32(self, address: int) -> int:
+        self._check_open()
+        if not hasattr(self, '_fn_bus_read32'):
+            self._fn_bus_read32 = self._make_fn(
+                'busRead32', ctypes.CFUNCTYPE(ctypes.c_uint32, ctypes.c_void_p, ctypes.c_uint32))
+        return self._fn_bus_read32(self._ptr, address)
 
     def close(self) -> None:
         if not self._closed and self._ptr:
