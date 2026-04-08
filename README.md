@@ -86,7 +86,7 @@ cp path/to/save.sav "roms/Mega Man Battle Network 6 - Cybeast Gregar (USA).sav"
 ### Quick Start (Full Experience)
 
 ```bash
-cd ~/Projects/mmbn-rl-agent && conda activate .venv/ && PYTHONPATH=. python scripts/watch_agent.py --state 1 --fps 15
+conda activate .venv/ && PYTHONPATH=. python scripts/watch_agent.py --state 1 --fps 15
 ```
 
 ### Watch Agent Dashboard (Random Actions)
@@ -109,7 +109,7 @@ Controls: `P` pause, `R` reset, `Esc` save & quit
 ### Train the Agent
 
 ```bash
-cd ~/Projects/mmbn-rl-agent && conda activate .venv/ && PYTHONPATH=. python scripts/train.py --state 1 --timesteps 500000
+conda activate .venv/ && PYTHONPATH=. python scripts/train.py --state 1 --timesteps 500000
 ```
 
 ### View Progress
