@@ -1,0 +1,42 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+*.egg
+.eggs/
+
+# Virtual environment
+venv/
+.venv/
+/env/
+
+# ROMs (never commit)
+*.gba
+*.gbc
+*.gb
+*.sav
+*.sav.bak
+roms/
+
+# Training artifacts
+models/
+logs/
+tensorboard/
+*.zip
+*.pkl
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Env
+.env
+*.env
