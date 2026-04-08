@@ -5,6 +5,8 @@ from gymnasium import spaces
 
 from src.env.mgba_core import MgbaCore, GBA_W, GBA_H, KEY_NAMES
 
+ADDR_PLAYER_HP = 0x0203A9D4
+ADDR_ENEMY_HP = 0x0203AAAC
 
 ACTIONS = [
     0,                  # 0: nothing
@@ -57,7 +59,6 @@ class MmbnEnv(gym.Env):
         super().__init__()
         self.rom_path = rom_path
         self.save_path = save_path
-        self.state_path = state_path
         self.render_mode = render_mode
         self.frame_skip = frame_skip
         self.frame_size = frame_size
@@ -78,10 +79,22 @@ class MmbnEnv(gym.Env):
                 self._state_slot = int(state_path)
             else:
                 self._state_path = state_path
+
         self._steps = 0
         self._total_reward = 0.0
         self._last_action = 0
         self._last_action_name = 'NOOP'
+        self._prev_player_hp = 0
+        self._prev_enemy_hp = 0
+        self._damage_dealt = 0.0
+        self._damage_taken = 0.0
+        self._won = False
+        self._died = False
+
+    def _read_hp(self) -> tuple[int, int]:
+        player_hp = self._core.read16(ADDR_PLAYER_HP)
+        enemy_hp = self._core.read16(ADDR_ENEMY_HP)
+        return player_hp, enemy_hp
 
     def _preprocess(self, frame: np.ndarray) -> np.ndarray:
         gray = cv2.cvtColor(frame, cv2.COLOR_RGB2GRAY)
@@ -101,17 +114,48 @@ class MmbnEnv(gym.Env):
         obs = self._preprocess(self._core.get_screen())
         self._steps += 1
 
+        player_hp, enemy_hp = self._read_hp()
         reward = -0.01
-        terminated = False
-        truncated = self._steps >= self.max_episode_steps
 
+        if self._prev_enemy_hp > 0 and enemy_hp < self._prev_enemy_hp:
+            dmg = self._prev_enemy_hp - enemy_hp
+            reward += dmg * 1.0
+            self._damage_dealt += dmg
+
+        if self._prev_player_hp > 0 and player_hp < self._prev_player_hp:
+            dmg = self._prev_player_hp - player_hp
+            reward -= dmg * 0.5
+            self._damage_taken += dmg
+
+        terminated = False
+        in_battle = self._prev_player_hp > 0 and self._prev_enemy_hp > 0 and self._steps > 10
+
+        if in_battle and enemy_hp == 0:
+            reward += 100.0
+            self._won = True
+            terminated = True
+
+        if in_battle and player_hp == 0:
+            reward -= 50.0
+            self._died = True
+            terminated = True
+
+        self._prev_player_hp = player_hp
+        self._prev_enemy_hp = enemy_hp
         self._total_reward += reward
+        truncated = self._steps >= self.max_episode_steps
 
         info = {
             'frame': self._core.frame_counter,
             'steps': self._steps,
             'action_name': self._last_action_name,
             'total_reward': self._total_reward,
+            'player_hp': player_hp,
+            'enemy_hp': enemy_hp,
+            'damage_dealt': self._damage_dealt,
+            'damage_taken': self._damage_taken,
+            'won': self._won,
+            'died': self._died,
         }
 
         return obs, reward, terminated, truncated, info
@@ -129,9 +173,15 @@ class MmbnEnv(gym.Env):
         self._total_reward = 0.0
         self._last_action = 0
         self._last_action_name = 'NOOP'
+        self._damage_dealt = 0.0
+        self._damage_taken = 0.0
+        self._won = False
+        self._died = False
 
         for _ in range(10):
             self._core.run_frame()
+
+        self._prev_player_hp, self._prev_enemy_hp = self._read_hp()
 
         obs = self._preprocess(self._core.get_screen())
         info = {
@@ -139,6 +189,12 @@ class MmbnEnv(gym.Env):
             'steps': 0,
             'action_name': 'NOOP',
             'total_reward': 0.0,
+            'player_hp': self._prev_player_hp,
+            'enemy_hp': self._prev_enemy_hp,
+            'damage_dealt': 0.0,
+            'damage_taken': 0.0,
+            'won': False,
+            'died': False,
         }
         return obs, info
 
@@ -147,8 +203,8 @@ class MmbnEnv(gym.Env):
             return self._core.get_screen()
         return None
 
-    def render_bgra(self):
-        return self._core.get_screen_bgra()
+    def render_rgba(self):
+        return self._core.get_screen_rgba()
 
     def close(self):
         if self._core:

@@ -17,7 +17,7 @@ ROM_PATH = str(PROJECT_ROOT / 'roms' / 'Mega Man Battle Network 6 - Cybeast Greg
 SAVE_PATH = str(PROJECT_ROOT / 'roms' / 'Mega Man Battle Network 6 - Cybeast Gregar (USA).sav')
 LOG_DIR = PROJECT_ROOT / 'logs'
 
-PANEL_W = 300
+PANEL_W = 340
 
 
 def main():
@@ -54,8 +54,6 @@ def main():
         'step_count': 0,
         'episode': progress.total_episodes + 1,
         'episode_reward': 0.0,
-        'episode_damage_dealt': 0.0,
-        'episode_damage_taken': 0.0,
         'actions_hist': [0] * len(ACTION_NAMES),
         'fps_actual': 0.0,
         'frame_times': [],
@@ -64,41 +62,37 @@ def main():
         'action_log': [],
     }
 
-    panel_bg = pyglet.shapes.Rectangle(game_w, 0, PANEL_W, win_h, color=(20, 20, 30))
+    px = game_w + 14
+
+    panel_bg = pyglet.shapes.Rectangle(game_w, 0, PANEL_W, win_h, color=(15, 15, 22))
+
+    def make_label(y, size=11, color=(200, 200, 200, 255), bold=False, width=None):
+        return pyglet.text.Label(
+            '', font_name='Courier', font_size=size, bold=bold,
+            x=px, y=y, anchor_y='top',
+            color=color, multiline=True, width=width or (PANEL_W // 2 - 10),
+        )
 
     title_label = pyglet.text.Label(
-        'MMBN AGENT', font_name='Courier', font_size=14, bold=True,
-        x=game_w + 10, y=win_h - 20, color=(0, 255, 180, 255),
+        'MMBN AGENT', font_name='Courier', font_size=13, bold=True,
+        x=px, y=win_h - 12, color=(0, 255, 180, 255),
     )
 
-    stats_label = pyglet.text.Label(
-        '', font_name='Courier', font_size=10,
-        x=game_w + 10, y=win_h - 50, anchor_y='top',
-        color=(200, 200, 200, 255), multiline=True, width=PANEL_W - 20,
-    )
+    col_left = px
+    col_right = game_w + PANEL_W // 2 + 10
 
-    action_header = pyglet.text.Label(
-        'CURRENT ACTION', font_name='Courier', font_size=9,
-        x=game_w + PANEL_W // 2, y=160, anchor_x='center',
-        color=(120, 120, 140, 255),
-    )
+    battle_label = make_label(win_h - 40, color=(255, 220, 100, 255))
+    episode_label = make_label(win_h - 180, color=(200, 200, 200, 255), width=PANEL_W - 28)
+    alltime_label = make_label(win_h - 320, color=(160, 180, 220, 255), width=PANEL_W - 28)
 
     action_label = pyglet.text.Label(
-        '', font_name='Courier', font_size=18, bold=True,
-        x=game_w + PANEL_W // 2, y=135, anchor_x='center',
-        color=(255, 255, 0, 255),
+        '', font_name='Courier', font_size=11,
+        x=col_right, y=win_h - 40, anchor_y='top',
+        color=(255, 255, 0, 255), multiline=True, width=PANEL_W // 2 - 20,
     )
-
-    history_label = pyglet.text.Label(
-        '', font_name='Courier', font_size=9,
-        x=game_w + 10, y=115, anchor_y='top',
-        color=(180, 180, 200, 255), multiline=True, width=PANEL_W - 20,
-    )
-
     status_label = pyglet.text.Label(
         '', font_name='Courier', font_size=10,
-        x=game_w + 10, y=20,
-        color=(100, 255, 100, 255),
+        x=px, y=14, color=(100, 255, 100, 255),
     )
 
     def save_session_log():
@@ -127,33 +121,23 @@ def main():
         elif symbol == keycodes.P:
             state['paused'] = not state['paused']
         elif symbol == keycodes.R:
-            ep_stats = EpisodeStats(
-                damage_dealt=state['episode_damage_dealt'],
-                damage_taken=state['episode_damage_taken'],
-                reward_total=state['episode_reward'],
-                steps=state['step_count'],
-            )
-            progress.record(ep_stats)
-
             obs, info = env.reset()
             state['obs'] = obs
             state['info'] = info
             state['step_count'] = 0
             state['episode'] += 1
             state['episode_reward'] = 0.0
-            state['episode_damage_dealt'] = 0.0
-            state['episode_damage_taken'] = 0.0
             state['actions_hist'] = [0] * len(ACTION_NAMES)
 
     @window.event
     def on_draw():
         window.clear()
 
-        frame = env.render_bgra()
+        frame = env.render_rgba()
         if frame is not None:
             frame_flipped = np.ascontiguousarray(np.flip(frame, axis=0))
             h, w = frame_flipped.shape[:2]
-            img = pyglet.image.ImageData(w, h, 'BGRA', frame_flipped.tobytes())
+            img = pyglet.image.ImageData(w, h, 'RGBA', frame_flipped.tobytes())
             texture = img.get_texture()
             texture.width = game_w
             texture.height = game_h
@@ -162,46 +146,54 @@ def main():
         panel_bg.draw()
         title_label.draw()
 
-        top5 = sorted(range(len(state['actions_hist'])),
-                       key=lambda i: state['actions_hist'][i], reverse=True)[:5]
-        top5_str = '\n'.join(
-            f"  {ACTION_NAMES[i]:>8}: {state['actions_hist'][i]}"
-            for i in top5
-        )
-
+        info = state['info']
         elapsed = time.time() - state['session_start']
         mins = int(elapsed // 60)
         secs = int(elapsed % 60)
 
-        stats_label.text = (
-            f"Episode:    {state['episode']}\n"
-            f"Step:       {state['step_count']}\n"
-            f"Frame:      {state['info'].get('frame', 0)}\n"
-            f"Reward:     {state['episode_reward']:.2f}\n"
-            f"FPS:        {state['fps_actual']:.0f}\n"
-            f"Session:    {mins}m {secs}s\n"
-            f"Total Steps:{state['session_steps']}\n"
-            f"\n--- All Time ---\n"
-            f"Episodes:   {progress.total_episodes}\n"
-            f"Wins:       {progress.wins}\n"
-            f"Win Rate:   {progress.win_rate:.1%}\n"
-            f"Best Streak:{progress.best_win_streak}\n"
-            f"Best Reward:{progress.best_reward:.1f}\n"
-            f"\n--- Actions ---\n{top5_str}"
-        )
-        stats_label.draw()
+        p_hp = info.get('player_hp', 0)
+        e_hp = info.get('enemy_hp', 0)
+        dmg_d = info.get('damage_dealt', 0)
+        dmg_t = info.get('damage_taken', 0)
 
-        action_header.draw()
-        action_label.text = state['info'].get('action_name', 'NOOP')
+        battle_label.text = (
+            f"BATTLE\n"
+            f"Player HP   {p_hp}\n"
+            f"Enemy  HP   {e_hp}\n"
+            f"Dmg Dealt   {dmg_d:.0f}\n"
+            f"Dmg Taken   {dmg_t:.0f}"
+        )
+        battle_label.draw()
+
+        episode_label.text = (
+            f"EPISODE {state['episode']}\n"
+            f"Step        {state['step_count']}\n"
+            f"Reward      {state['episode_reward']:.2f}\n"
+            f"FPS         {state['fps_actual']:.0f}\n"
+            f"Session     {mins}m {secs}s\n"
+            f"Total Steps {state['session_steps']}"
+        )
+        episode_label.draw()
+
+        alltime_label.text = (
+            f"ALL TIME\n"
+            f"Episodes    {progress.total_episodes}\n"
+            f"Wins        {progress.wins}\n"
+            f"Deaths      {progress.deaths}\n"
+            f"Win Rate    {progress.win_rate:.1%}\n"
+            f"Best Streak {progress.best_win_streak}"
+        )
+        alltime_label.draw()
+
+        last6 = state['action_log'][-6:]
+        action_label.text = (
+            f"ACTION: {info.get('action_name', 'NOOP')}\n\n"
+            + '\n'.join(f"  {a}" for a in reversed(last6))
+        )
         action_label.draw()
 
-        last8 = state['action_log'][-8:]
-        if last8:
-            history_label.text = '\n'.join(f"  {a}" for a in reversed(last8))
-            history_label.draw()
-
-        status_label.text = 'PAUSED [P]' if state['paused'] else 'RUNNING | P=Pause R=Reset'
-        status_label.color = (255, 100, 100, 255) if state['paused'] else (100, 255, 100, 255)
+        status_label.text = 'PAUSED [P]' if state['paused'] else 'P=Pause  R=Reset  Esc=Quit'
+        status_label.color = (255, 100, 100, 255) if state['paused'] else (80, 180, 80, 255)
         status_label.draw()
 
     def update(dt):
@@ -231,15 +223,19 @@ def main():
 
         if terminated or truncated:
             ep_stats = EpisodeStats(
-                damage_dealt=state['episode_damage_dealt'],
-                damage_taken=state['episode_damage_taken'],
+                damage_dealt=info.get('damage_dealt', 0),
+                damage_taken=info.get('damage_taken', 0),
                 reward_total=state['episode_reward'],
                 steps=state['step_count'],
+                won=info.get('won', False),
+                died=info.get('died', False),
             )
             progress.record(ep_stats)
+            progress.save(str(LOG_DIR / 'progress.json'))
+            save_session_log()
 
-            if state['episode'] % 10 == 0:
-                progress.save(str(LOG_DIR / 'progress.json'))
+            result = 'WIN' if info.get('won') else 'DIED' if info.get('died') else 'TIMEOUT'
+            state['action_log'].append(f'--- {result} ---')
 
             obs, info = env.reset()
             state['obs'] = obs
@@ -247,8 +243,6 @@ def main():
             state['step_count'] = 0
             state['episode'] += 1
             state['episode_reward'] = 0.0
-            state['episode_damage_dealt'] = 0.0
-            state['episode_damage_taken'] = 0.0
             state['actions_hist'] = [0] * len(ACTION_NAMES)
 
     pyglet.clock.schedule_interval(update, 1.0 / args.fps)

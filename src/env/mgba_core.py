@@ -173,9 +173,9 @@ class MgbaCore:
     def get_screen(self) -> np.ndarray:
         self._check_open()
         raw = np.frombuffer(self._video_buffer, dtype=np.uint8).reshape(GBA_H, GBA_W, 4).copy()
-        return raw[:, :, [2, 1, 0]]
+        return raw[:, :, :3]
 
-    def get_screen_bgra(self) -> np.ndarray:
+    def get_screen_rgba(self) -> np.ndarray:
         self._check_open()
         return np.frombuffer(self._video_buffer, dtype=np.uint8).reshape(GBA_H, GBA_W, 4).copy()
 
