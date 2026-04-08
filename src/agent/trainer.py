@@ -4,7 +4,6 @@ import gymnasium as gym
 
 
 def create_agent(env: gym.Env, **kwargs) -> DQN:
-    """Create a DQN agent with CNN policy for pixel-based observations."""
     defaults = {
         "policy": "CnnPolicy",
         "env": env,
@@ -20,7 +19,6 @@ def create_agent(env: gym.Env, **kwargs) -> DQN:
         "tensorboard_log": "logs/",
     }
     defaults.update(kwargs)
-
     policy = defaults.pop("policy")
     env = defaults.pop("env")
     return DQN(policy, env, **defaults)
@@ -32,7 +30,6 @@ def train(
     checkpoint_freq: int = 10_000,
     model_path: str = "models/mmbn_dqn",
 ) -> DQN:
-    """Train a DQN agent and save checkpoints."""
     model = create_agent(env)
 
     checkpoint_cb = CheckpointCallback(

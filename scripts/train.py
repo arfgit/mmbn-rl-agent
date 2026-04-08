@@ -1,19 +1,18 @@
 #!/usr/bin/env python3
-"""Train the MMBN RL agent."""
-
 import argparse
 from src.env import make_mmbn_env
 from src.agent.trainer import train
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Train MMBN RL agent")
-    parser.add_argument("--timesteps", type=int, default=100_000, help="Total training timesteps")
-    parser.add_argument("--checkpoint-freq", type=int, default=10_000, help="Checkpoint save frequency")
-    parser.add_argument("--model-path", type=str, default="models/mmbn_dqn", help="Final model save path")
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--timesteps", type=int, default=100_000)
+    parser.add_argument("--checkpoint-freq", type=int, default=10_000)
+    parser.add_argument("--model-path", type=str, default="models/mmbn_dqn")
+    parser.add_argument("--state", type=str, default=None)
     args = parser.parse_args()
 
-    env = make_mmbn_env()
+    env = make_mmbn_env(state=args.state)
     model = train(
         env,
         total_timesteps=args.timesteps,

@@ -2,16 +2,15 @@ import retro
 import gymnasium as gym
 import numpy as np
 import cv2
-from src.env.rewards import BattleRewardFunction
+from src.env.rewards import BattleRewardFunction, TrainingProgress
 
 
 class MmbnWrapper(gym.Wrapper):
-    """Wraps the gym-retro MMBN environment with preprocessing and custom rewards."""
-
     def __init__(self, env: gym.Env, frame_size: tuple[int, int] = (84, 84)):
         super().__init__(env)
         self.frame_size = frame_size
         self.reward_fn = BattleRewardFunction()
+        self.progress = TrainingProgress.load()
         self.observation_space = gym.spaces.Box(
             low=0, high=255, shape=(frame_size[1], frame_size[0], 1), dtype=np.uint8
         )
@@ -27,12 +26,30 @@ class MmbnWrapper(gym.Wrapper):
         return self._preprocess_frame(obs), reward, terminated, truncated, info
 
     def reset(self, **kwargs):
+        episode_stats = self.reward_fn.reset()
+        if episode_stats.steps > 0:
+            self.progress.record(episode_stats)
+            if self.progress.total_episodes % 50 == 0:
+                self.progress.save()
+
         obs, info = self.env.reset(**kwargs)
-        self.reward_fn.reset()
         return self._preprocess_frame(obs), info
 
+    def close(self):
+        episode_stats = self.reward_fn.reset()
+        if episode_stats.steps > 0:
+            self.progress.record(episode_stats)
+        self.progress.save()
+        super().close()
 
-def make_mmbn_env(game: str = "MegaManBattleNetwork-GBA", render_mode: str | None = None) -> gym.Env:
-    """Create a wrapped MMBN environment ready for training."""
-    env = retro.make(game=game, render_mode=render_mode)
+
+def make_mmbn_env(
+    game: str = "MegaManBattleNetwork-GBA",
+    state: str | None = None,
+    render_mode: str | None = None,
+) -> gym.Env:
+    kwargs = {"game": game, "render_mode": render_mode}
+    if state:
+        kwargs["state"] = state
+    env = retro.make(**kwargs)
     return MmbnWrapper(env)

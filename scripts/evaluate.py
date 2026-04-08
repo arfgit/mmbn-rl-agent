@@ -1,18 +1,17 @@
 #!/usr/bin/env python3
-"""Evaluate a trained MMBN RL agent with rendering."""
-
 import argparse
 from stable_baselines3 import DQN
 from src.env import make_mmbn_env
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Evaluate trained MMBN agent")
-    parser.add_argument("--model-path", type=str, default="models/mmbn_dqn.zip", help="Path to trained model")
-    parser.add_argument("--episodes", type=int, default=5, help="Number of episodes to run")
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--model-path", type=str, default="models/mmbn_dqn.zip")
+    parser.add_argument("--episodes", type=int, default=5)
+    parser.add_argument("--state", type=str, default=None)
     args = parser.parse_args()
 
-    env = make_mmbn_env(render_mode="human")
+    env = make_mmbn_env(state=args.state, render_mode="human")
     model = DQN.load(args.model_path, env=env)
 
     for ep in range(args.episodes):
