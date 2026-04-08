@@ -109,7 +109,7 @@ Controls: `P` pause, `R` reset, `Esc` save & quit
 ### Train the Agent
 
 ```bash
-PYTHONPATH=. python scripts/train.py --state 1 --timesteps 500000
+cd ~/Projects/mmbn-rl-agent && conda activate .venv/ && PYTHONPATH=. python scripts/train.py --state 1 --timesteps 500000
 ```
 
 ### View Progress
